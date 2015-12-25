@@ -13,7 +13,7 @@
 ;; constructs a healing skill
 (define/contract (make-heal name power)
   (-> string? integer? skill?)
-  (skill name 'heal 0 (lambda (st loc)
+  (skill name 'heal power 0 (lambda (st loc)
     (define usr (state-user st))
     (define amt (+ (actor-stat usr 'skl) power))
     (set-actor-hp! usr (min (actor-stat usr 'maxhp) (+ (actor-hp usr) amt))))))
@@ -21,7 +21,7 @@
 ;; constructs a damaging skill
 (define/contract (make-dmgr name power range)
   (-> string? integer? integer? skill?)
-  (skill name 'damage range (lambda (st loc)
+  (skill name 'damage power range (lambda (st loc)
     (define usr (state-user st))
     (define enms (grmap-enemies (state-fmap st)))
     (define target-idx (find-target loc))

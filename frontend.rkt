@@ -1,7 +1,7 @@
 #lang racket
 ;; rudimentary frontend functionality
 
-(provide display-map display-skills)
+(provide display-map display-skills display-skill-info)
 
 (require "state.rkt" "util.rkt" "backend.rkt")
 (require data/gvector)
@@ -33,9 +33,9 @@
   ))
 
 
-;; formats a skill nicely for printing; x,y MUST be a valid skill index
-(define/contract (format-skill st x y)
-  (-> state? integer? integer? string?)
+;; produces the appropriate terminal escape codes for a given skill
+(define/contract (skill-ansi-codes st x y)
+  (-> state? integer? integer? (listof integer?))
   (match-define (vector learned visible cost s) (get-skill st x y))
 
   (define base-color (cond
@@ -47,8 +47,7 @@
 
   (define intensity (if (can-learn? st x y) 60 0))
 
-  (apply (curry fmt (if visible cost #\?))
-         (append (list (+ base-color intensity)) bold)))
+  (append (list (+ base-color intensity)) bold))
 
 ;; displays the skill table
 (define/contract (display-skills st)
@@ -56,5 +55,41 @@
   (match-define (sarray width height skills) (actor-skills (state-user st)))
   (for ([row height])
     (for ([col width])
-      (display (format-skill st col row)))
+      (define sk (get-skill st col row))
+      (define skill-char (if (vector-ref sk 1) (vector-ref sk 2) #\?))
+      (display (apply (curry fmt skill-char) (skill-ansi-codes st col row))))
     (newline)))
+
+;; displays a line of n dashes
+(define (dash n [char #\-])
+  (-> integer? void?)
+  (for ([i n])
+    (display char))
+  (newline))
+
+;; prints info about a specific skill
+(define/contract (display-skill-info st x y)
+  (-> state? integer? integer? void?)
+  (dash 80 #\=)
+  (match (get-skill st x y)
+    [(vector _ #f _ _)
+      (printf "?????\n")
+      (dash 5)
+      (printf "You cannot see this skill yet.\n")]
+    [(vector learned #t cost s)
+      (define name (apply (curry fmt (if (skill? s) (skill-name s) "Stats"))
+                          (skill-ansi-codes st x y)))
+      (printf "~a~a (cost: ~a SP)\n" name (if learned " (LEARNED)" "") cost)
+      (dash 80)
+      (match s
+        [(skill _ 'damage pwr ran _)
+          (printf "Range: ~a. Deals (~a+skl) damage to target.\n" ran pwr)]
+        [(skill _ 'heal pwr _ _)
+          (printf "Range: N/A. Heals self for (~a+skl) HP.\n" pwr)]
+        [(? stats?)
+          (display (string-join (for/list ([(stat val) s] #:when (> val 0))
+                                  (format "~a+~a" stat val))
+                                ", "
+                                #:before-first "Increases "
+                                #:after-last ".\n"))])])
+  (dash 80 #\=))

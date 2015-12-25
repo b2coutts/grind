@@ -19,3 +19,8 @@
 
 (display-map st)
 (display-skills st)
+
+(display-skill-info st 0 0)
+(display-skill-info st 1 1)
+(display-skill-info st 0 2)
+(display-skill-info st 3 3)

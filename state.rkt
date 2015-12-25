@@ -23,6 +23,7 @@
 (define-struct/contract skill (
   [name           string?]
   [type           (or/c 'damage 'heal)]
+  [pwr            integer?]
   [ran            integer?]
   [effect         (-> any/c location? any/c)] ;; first arg is state?
 ) #:mutable #:transparent)
