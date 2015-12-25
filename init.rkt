@@ -2,7 +2,7 @@
 ;; defines some initial state for testing
 
 (provide game-state)
-(require "state.rkt" data/gvector)
+(require "state.rkt" "util.rkt" data/gvector)
 
 (define usr (actor
   "miles"
@@ -13,6 +13,7 @@
   5
   1
   1
+  (fmt #\M 32 40)
   (cons 1 1)
 ))
 
@@ -25,6 +26,7 @@
   1
   1
   1
+  (fmt #\S 31 40)
   (cons 1 3)
 ))
 
@@ -37,6 +39,7 @@
   4
   1
   1
+  (fmt #\R 31 40)
   (cons 3 3)
 ))
 

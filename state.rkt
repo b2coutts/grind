@@ -26,6 +26,7 @@
   [def            integer?]
   [spd            integer?]
   [range          integer?] ;; TODO: probably want this skill-based
+  [glyph          string?]
   [loc            (or/c location? #f)]
 ) #:mutable #:transparent)
 
@@ -33,7 +34,7 @@
 (define-struct/contract grmap (
   [width          integer?]
   [height         integer?]
-  [cells          (vectorof cell?)]
+  [cells          (vectorof cell?)] ;; size width*height, row-major
   [enemies        gvector?] ;; gvector of actor?
 ) #:mutable #:transparent)
 
