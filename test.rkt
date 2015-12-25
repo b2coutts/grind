@@ -5,6 +5,9 @@
 (define st game-state)
 
 (display-map st)
+(display-skills st)
+
+(learn-skill! st 0 0)
 
 (attack! st (cons 3 4))
 (attack! st (cons 1 3))
@@ -15,3 +18,4 @@
 (attack! st (cons 1 3))
 
 (display-map st)
+(display-skills st)
