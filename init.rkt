@@ -26,7 +26,7 @@
   "miles"
   1
   2
-  10
+  8
   '#hash((maxhp . 10) (str . 5) (skl . 5) (def . 5) (spd . 1) (ran . 1))
   skill-table
   (fmt #\M 32 40)
@@ -37,7 +37,7 @@
   "slime"
   2
   2
-  8
+  5
   '#hash((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
   (fmt #\S 31 40)
@@ -48,7 +48,7 @@
   "rock golem"
   3
   3
-  12
+  2
   '#hash((maxhp . 12) (str . 1) (skl . 0) (def . 4) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
   (fmt #\R 31 40)
