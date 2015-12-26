@@ -24,7 +24,7 @@
   (skill name 'damage power range (lambda (st loc)
     (define usr (state-user st))
     (define enms (grmap-enemies (state-fmap st)))
-    (define target-idx (find-target loc))
+    (define target-idx (find-target st loc))
     (cond
       [(not target-idx) (err (format "No target at ~a,~a!" (car loc) (cdr loc)))]
       [(> (loc-dist (actor-loc usr) loc) range)
@@ -32,7 +32,6 @@
       [else (define target (gvector-ref enms target-idx))
             (define dmg (+ (actor-stat usr 'skl) power
                            (- (actor-stat target 'def))))
-            (set-actor-hp! target (max 0 (- (actor-hp target) dmg)))
             (append
               (list (list 'info (format "You used ~a on ~a." name (actor-name target))))
               (apply-damage! st target-idx dmg))]))))

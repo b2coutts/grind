@@ -24,3 +24,9 @@
 (display-skill-info st 1 1)
 (display-skill-info st 0 2)
 (display-skill-info st 3 3)
+
+(learn-skill! st 0 0)
+(move-user! st (cons 2 2))
+(use-skill! st 0 0 (cons 3 3))
+(use-skill! st 0 0 (cons 3 3))
+(use-skill! st 0 0 (cons 3 3))

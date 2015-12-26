@@ -1,7 +1,7 @@
 #lang racket
 ;; provides user-facing functions for manipulating the game state
 
-(provide move-user! attack! learn-skill!)
+(provide move-user! attack! learn-skill! use-skill!)
 
 (require "state.rkt" "util.rkt" "combat.rkt")
 (require data/gvector)
@@ -66,3 +66,12 @@
           ", "
           #:before-first "Gained "
           #:before-last ", and ")))])]))
+
+;; use a skill at target
+(define/contract (use-skill! st x y loc)
+  (-> state? integer? integer? location? response?)
+  (match (get-skill st x y)
+    [#f (err "Invalid skill")]
+    [(vector #f _ _ _) (err "You have not learned that skill yet.")]
+    [(vector _ _ _ (? stats?)) (err "That is not an active skill.")]
+    [(vector #t _ _ sk) ((skill-effect sk) st loc)]))
