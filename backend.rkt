@@ -1,7 +1,7 @@
 #lang racket
 ;; provides user-facing functions for manipulating the game state
 
-(provide response? move-user! attack! learn-skill! use-skill!)
+(provide response? move-user! attack! learn-skill! use-skill! echo)
 
 (require "state.rkt" "util.rkt" "combat.rkt")
 (require data/gvector)
@@ -68,3 +68,8 @@
     [(vector #f _ _ _) (err "You have not learned that skill yet.")]
     [(vector _ _ _ (? stats?)) (err "That is not an active skill.")]
     [(vector #t _ _ sk) ((skill-effect sk) st loc)]))
+
+;; echo function for debug purposes
+(define/contract (echo str)
+  (-> string? response?)
+  (list (list 'info str)))

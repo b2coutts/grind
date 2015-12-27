@@ -12,8 +12,9 @@
 
 ;; some global state
 (define console-lines (make-queue))
-(for ([i map-height]) (enqueue! console-lines ""))
+  (for ([i map-height]) (enqueue! console-lines ""))
 (define active-enemies (gvector))
+(define frontend-state 'map)
 
 (open-charterm)
 (charterm-clear-screen)
@@ -63,6 +64,17 @@
     ['floor     (fmt #\space 40)]
     ['wall      (fmt #\X 97)]))
 
+;; convert terminal coordinates to map coordinates
+(define/contract (term->map st col row)
+  (-> state? integer? integer? location?)
+  (cons (+ col (car (actor-loc (state-user st))) (quotient map-width -2) -2)
+        (+ row (cdr (actor-loc (state-user st))) (quotient map-height -2) -2)))
+
+;; convert map coordinates to terminal coordinates
+(define/contract (map->term st loc)
+  (-> state? location? (values integer? integer?))
+  (values (- (car loc) (car (actor-loc (state-user st))) (quotient map-width -2) -2)
+          (- (cdr loc) (cdr (actor-loc (state-user st))) (quotient map-height -2) -2)))
 
 ;; TODO: add comments to group the rest of the functions
 
@@ -76,6 +88,13 @@
                   #:when (and enm (<= (- (car (actor-loc enm)) (car uloc)) (/ map-width 2))
                                   (<= (- (cdr (actor-loc enm)) (cdr uloc)) (/ map-height 2))))
       idx)))
+
+;; set cursor visibility
+;; TODO: this and other things should really use tput
+(define/contract (set-cursor-vis vis)
+  (-> boolean? void?)
+  (printf "\x1b\x5b\x3f\x32\x35~a" (if vis "\x68" "\x6c"))
+  (flush-output))
 
 ;; displays user info
 (define/contract (display-user st)
@@ -160,8 +179,7 @@
     (charterm-cursor 1 (+ row 2))
     (charterm-display bar)
     (for ([col (- map-width 2)])
-      (define x (+ col (car (actor-loc usr)) (quotient map-width -2)))
-      (define y (+ row (cdr (actor-loc usr)) (quotient map-height -2)))
+      (match-define (cons x y) (term->map st (+ col 2) (+ row 2)))
       (charterm-display (cond
         [(not (and (< -1 x width) (< -1 y height))) #\space]
         [else (hash-ref glyphs (cons x y) (thunk (cell->string (grmap-ref gm x y))))])))
@@ -254,6 +272,7 @@
 ;; TODO: should make things refresh at most once, i.e., don't redraw map one each for move/death
 (define/contract (handle-response st resp)
   (-> state? response? void?)
+  (printf "\x1bs") ;; save current cursor position
   (for ([msg resp])
     (match msg
       [(list 'err str) (consolef "!" str)]
@@ -270,16 +289,17 @@
                                                #:after-last "."))])]
       ;; TODO: update HUD
       [(list 'damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
-      [(list 'death target) (consolef "*" "~a died." (actor-name target))
-                            (display-map st)
+      [(list 'death target) (display-map st)
                             (update-active-enemies! st)
                             (display-active-enemies st)
-                            (display-console)]
+                            (consolef "*" "~a died." (actor-name target))]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
-  (display-console))
+  (printf "\x1bu")) ;; load initial cursor position
+
 
 ;; initialize UI
 (define st game-state)
+(set-cursor-vis #f)
 (update-active-enemies! st)
 (display-map st)
 (display-user st)
@@ -289,19 +309,43 @@
 (define (loop)
   ;; note: in asciitan I discovered a charterm bug where this would not sync despite input being
   ;; ready (would lag 1 behind user input); may want to workaround this if it comes up
+  (match-define (cons x y) (actor-loc (state-user st)))
   (define evt (sync (current-charterm)))
+  (define input (hash-ref bindings (charterm-read-key) (thunk #f)))
+  (when (equal? input 'quit)
+    (set-cursor-vis #t)
+    (exit))
   (handle-response st (match (state-context st)
-    ['battle (match-define (cons x y) (actor-loc (state-user st)))
-             (match (hash-ref bindings (charterm-read-key) (thunk #f))
-              ['left   (move-user! st (cons (sub1 x) y))]
-              ['down   (move-user! st (cons x (add1 y)))]
-              ['up     (move-user! st (cons x (sub1 y)))]
-              ['right  (move-user! st (cons (add1 x) y))]
-              ;['select (err "select not implemented")]
-              ;['back   (err "back not implemented")]
-              ['select (attack! st (cons 3 3))]
-              ['back (attack! st (cons 1 3))]
-              ['menu   (err "menu not implemented")])]))
-  (charterm-cursor 999 999)
+    ['battle (match frontend-state
+      ['map (match input
+        ['left   (move-user! st (cons (sub1 x) y))]
+        ['down   (move-user! st (cons x (add1 y)))]
+        ['up     (move-user! st (cons x (sub1 y)))]
+        ['right  (move-user! st (cons (add1 x) y))]
+        ['select (define-values (col row) (map->term st (cons x y)))
+                 (set! frontend-state (list 'attack col row))
+                 (charterm-cursor col row)
+                 (set-cursor-vis #t)
+                 '()]
+        ['back   (err "back not implemented")]
+        ['menu   (err "menu not implemented")]
+        [#f      '()])]
+      [(list 'attack x y) (define resp (match input
+        ['left   (set! x (max 0 (sub1 x)))]
+        ['down   (set! y (min (- map-height 2) (add1 y)))]
+        ['up     (set! y (max 0 (sub1 y)))]
+        ['right  (set! x (min (- map-width 2) (add1 x)))]
+        ['select (set! frontend-state 'map)
+                 (set-cursor-vis #f)
+                 (attack! st (term->map st x y))]
+        ['back   (set! frontend-state 'map)
+                 (set-cursor-vis #f)
+                 '()]
+        [_ '()]))
+       (cond
+        [(not (member input '(left down up right))) resp]
+        [else (set! frontend-state (list 'attack x y))
+              (charterm-cursor x y)
+              '()])])]))
   (loop))
 (loop)
