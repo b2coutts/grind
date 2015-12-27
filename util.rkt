@@ -1,7 +1,7 @@
 #lang racket
 ;; miscellaneous helper functions
 
-(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn?)
+(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms)
 
 (require "state.rkt")
 (require data/gvector)
@@ -34,7 +34,8 @@
   (-> state? location? (or/c #f integer?))
   (define enms (grmap-enemies (state-fmap st)))
   (for/first ([idx (gvector-count enms)]
-              #:when (equal? (actor-loc (gvector-ref enms idx)) loc))
+              #:when (and (gvector-ref enms idx)
+                          (equal? (actor-loc (gvector-ref enms idx)) loc)))
     idx))
 
 ;; produces the skill/statup at (x,y)
@@ -52,7 +53,7 @@
   (hash-ref (actor-stats actr) stat))
 
 ;; determines whether a skill can be learned (i.e., is adjacent to a learned skill)
-(define (can-learn? st x y)
+(define/contract (can-learn? st x y)
   (-> state? integer? integer? any/c)
   (or (and (= x 0) (= y 0))
       (for*/or ([dx '(-1 0 1)]
@@ -61,3 +62,10 @@
         (match (get-skill st (+ x dx) (+ y dy))
           [(vector #t _ _ _) #t]
           [_ #f]))))
+
+;; produces a list of all living enemies
+(define/contract (liv-enms st)
+  (-> state? (listof actor?))
+  (for/list ([enm (grmap-enemies (state-fmap st))]
+             #:when (> (actor-hp enm) 0))
+    enm))

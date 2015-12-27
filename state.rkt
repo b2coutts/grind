@@ -58,7 +58,7 @@
   [width          integer?]
   [height         integer?]
   [cells          (vectorof cell?)] ;; size width*height, row-major
-  [enemies        gvector?] ;; gvector of actor?
+  [enemies        gvector?] ;; gvector of (or/c #f actor?)
 ) #:mutable #:transparent)
 
 ;; contains an entire game state

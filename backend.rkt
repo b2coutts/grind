@@ -1,7 +1,7 @@
 #lang racket
 ;; provides user-facing functions for manipulating the game state
 
-(provide move-user! attack! learn-skill! use-skill!)
+(provide response? move-user! attack! learn-skill! use-skill!)
 
 (require "state.rkt" "util.rkt" "combat.rkt")
 (require data/gvector)
@@ -15,7 +15,10 @@
   (-> state? location? response?)
   (match-define (state usr _ fmap) st)
   (cond
-    [(> (loc-dist (actor-loc usr) loc) (actor-stat usr 'spd)) (err "Cannot move that far!")]
+    [(> (loc-dist (actor-loc usr) loc) 1) (err "Cannot move that far!")]
+    [(or (equal? (grmap-ref fmap (car loc) (cdr loc)) 'wall)
+         (member loc (map actor-loc (liv-enms st))))
+      (err "There's something in the way!")]
     [else (set-actor-loc! usr loc)
           (list (list 'move loc))]))
 
@@ -53,19 +56,9 @@
       [#f (err "No skill at (~a,~a)!" x y)]
       [(vector #t _ _ _) (err "Already learned this skill!")]
       [(vector _ _ (? (curry < (actor-sp usr))) _) (err "You don't have enough SP!")]
-      [(vector #f #t cost (? skill? sk))
+      [(vector #f #t cost _)
         (apply-sp! cost)
-        (list (list 'skill-gain sk))]
-      [(vector #f #t cost (? stats? sts))
-        (apply-sp! cost)
-        (define usr-stats (actor-stats usr))
-        (list (list 'stat-gain (string-join
-          (for/list ([(stat val) sts])
-            (hash-set! usr-stats stat (+ val (hash-ref usr-stats stat)))
-            (format "~a ~a" val stat))
-          ", "
-          #:before-first "Gained "
-          #:before-last ", and ")))])]))
+        (list (list 'skill-gain x y))])]))
 
 ;; use a skill at target
 (define/contract (use-skill! st x y loc)
