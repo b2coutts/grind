@@ -49,7 +49,6 @@
   [hp             integer?]
   [stats          stats?]
   [skills         sarray?]
-  [glyph          string?]
   [loc            (or/c location? #f)]
 ) #:mutable #:transparent)
 

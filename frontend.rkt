@@ -29,6 +29,11 @@
 (define bar (fmt #\| 90))
 
 ;; ------------------various string building helper functions------------------
+;; converts an enemy index to a letter
+(define/contract (idx->glyph idx)
+  (-> integer? string?)
+  (fmt (string-ref "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" (modulo idx 52)) 31))
+
 ;; wraps a string to lines of at most N characters each
 ;; TODO: handle terminal codes nicely
 (define/contract (wrap N str)
@@ -105,7 +110,7 @@
 ;; displays user info
 (define/contract (display-user st)
   (-> state? void?)
-  (match-define (and usr (actor name lvl _ hp _ _ _ _)) (state-user st))
+  (match-define (and usr (actor name lvl _ hp _ _ _)) (state-user st))
   (charterm-cursor map-width 1)
     (charterm-display (make-bar hud-width))
 
@@ -127,23 +132,25 @@
   (charterm-cursor map-width 4)
     (charterm-display (make-bar hud-width #\=)))
 
-;; display actor info at the given slot (slots are 0-indexed)
-(define/contract (display-actor actr slot)
-  (-> actor? integer? void?)
-  (match-define (actor name lvl _ hp _ _ _ _) actr)
+;; display enemy info at the given slot (slots are 0-indexed)
+(define/contract (display-actor st enm-idx slot)
+  (-> state? integer? integer? void?)
+  (define enm (gvector-ref (grmap-enemies (state-fmap st)) enm-idx))
+  (match-define (actor name lvl _ hp _ _ _) enm)
   (define y1 (+ 5 (* slot 3)))
 
   (charterm-cursor map-width y1)
     (charterm-display bar)
-    (charterm-display (format " ~a: ~a (~a/~a)" #\? (fmt name 31) hp (actor-stat actr 'maxhp)))
+    (charterm-display (format " ~a: ~a (~a/~a)"
+                              (idx->glyph enm-idx) (fmt name 31) hp (actor-stat enm 'maxhp)))
   (charterm-cursor (+ map-width hud-width -14) y1)
-    (charterm-display (make-health-bar hp (actor-stat actr 'maxhp) 10))
+    (charterm-display (make-health-bar hp (actor-stat enm 'maxhp) 10))
     (charterm-display (fmt " |" 90))
 
   (charterm-cursor map-width (+ y1 1))
     (charterm-display (format "~a    LV ~a" bar lvl))
   (define stat-str (string-join (for/list ([stat '(str skl def spd ran)])
-                                  (~a (actor-stat actr stat)))
+                                  (~a (actor-stat enm stat)))
                                 "/"))
   (charterm-cursor (+ map-width hud-width (- (string-length stat-str)) -2) (+ y1 1))
     (charterm-display stat-str)
@@ -155,9 +162,9 @@
 ;; displays all active enemies
 (define/contract (display-active-enemies st)
   (-> state? void?)
-  (for ([enm active-enemies]
-        [idx (in-naturals)])
-    (display-actor (gvector-ref (grmap-enemies (state-fmap st)) enm) idx)))
+  (for ([enm-idx active-enemies]
+        [slot-idx (in-naturals)])
+    (display-actor st enm-idx slot-idx)))
 
 ;; refreshes the console display
 (define/contract (display-console)
@@ -176,9 +183,10 @@
 (define/contract (display-map st)
   (-> state? void?)
   (match-define (state usr 'battle (and gm (grmap width height cells _))) st)
-  (define lenms (liv-enms st))
-  (define glyphs (for/hash ([ent (cons usr lenms)])
-    (values (actor-loc ent) (actor-glyph ent))))
+  (define glyphs (hash-set (for/hash ([ent (grmap-enemies (state-fmap st))]
+                                      [idx (in-naturals)])
+                              (values (actor-loc ent) (idx->glyph idx)))
+                           (actor-loc usr) (fmt "@" 32)))
   (charterm-cursor 1 1)
   (charterm-display (make-bar map-width))
   (for ([row (- map-height 2)])
@@ -353,10 +361,10 @@
         ['menu   (err "menu not implemented")]
         [#f      '()])]
       [(list 'attack x y) (define resp (match input
-        ['left   (set! x (max 0 (sub1 x)))]
-        ['down   (set! y (min (- map-height 2) (add1 y)))]
-        ['up     (set! y (max 0 (sub1 y)))]
-        ['right  (set! x (min (- map-width 2) (add1 x)))]
+        ['left   (set! x (max 2 (sub1 x)))]
+        ['down   (set! y (min (- map-height 1) (add1 y)))]
+        ['up     (set! y (max 2 (sub1 y)))]
+        ['right  (set! x (min (- map-width 1) (add1 x)))]
         ['select (set! frontend-state 'map)
                  (set-cursor-vis #f)
                  (attack! st (term->map st x y))]

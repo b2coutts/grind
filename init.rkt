@@ -29,7 +29,6 @@
   8
   '#hash((maxhp . 10) (str . 5) (skl . 5) (def . 5) (spd . 1) (ran . 1))
   skill-table
-  (fmt #\M 32 40)
   (cons 20 20)
 ))
 
@@ -40,7 +39,6 @@
   8
   '#hash((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
-  (fmt #\S 31 40)
   (cons 40 4)
 ))
 
@@ -51,7 +49,6 @@
   22
   '#hash((maxhp . 25) (str . 1) (skl . 0) (def . 4) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
-  (fmt #\R 31 40)
   (cons 4 1)
 ))
 
