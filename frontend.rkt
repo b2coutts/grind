@@ -5,9 +5,11 @@
 (require "state.rkt" "util.rkt" "backend.rkt" "bindings.rkt")
 (require (planet neil/charterm) data/gvector data/queue)
 
+#| Profiler block 1
 (require profile profile/render-text)
-
 (profile-thunk (thunk
+|#
+
 ;; various UI constants
 (define map-width 40)
 (define map-height 40)
@@ -192,14 +194,6 @@
             (cell->string
             (grmap-ref gm x y))))]))
       ,bar))))
-    #|
-    (for ([col (- map-width 2)])
-      (match-define (cons x y) (term->map st (+ col 2) (+ row 2)))
-      (charterm-display (cond
-        [(not (and (< -1 x width) (< -1 y height))) #\space]
-        [else (hash-ref glyphs (cons x y) (thunk (cell->string (grmap-ref gm x y))))])))
-    (charterm-display bar))
-    |#
   (charterm-cursor 1 map-height)
   (charterm-display (make-bar map-width)))
 
@@ -369,9 +363,6 @@
               '()])])]))
   (loop))
 (loop)
-#|
-) #:render (lambda (p) (with-output-to-file "output.txt" (thunk
-  (printf "foo\n")
-  (render p)) #:exists 'truncate)))
-|#
-))
+
+;; Profiler parens
+;; ))
