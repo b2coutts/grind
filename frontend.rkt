@@ -20,6 +20,7 @@
   (for ([i map-height]) (enqueue! console-lines ""))
 (define active-enemies '())
 (define frontend-state 'map)
+(define cursor-vis #f)
 
 (open-charterm)
 (charterm-clear-screen)
@@ -97,7 +98,8 @@
 ;; TODO: this and other things should really use tput
 (define/contract (set-cursor-vis vis)
   (-> boolean? void?)
-  (printf "\x1b\x5b\x3f\x32\x35~a" (if vis "\x68" "\x6c"))
+  (set! cursor-vis vis)
+  (printf "\x1b\x5b\x3f\x32\x35~a" (if cursor-vis "\x68" "\x6c"))
   (flush-output))
 
 ;; displays user info
@@ -291,7 +293,11 @@
 ;; TODO: should maybe make it only refresh what needs to be refreshed
 (define/contract (handle-response st resp)
   (-> state? response? void?)
-  (printf "\x1bs") ;; save current cursor position
+  (define old-cursor-vis cursor-vis)
+  (set-cursor-vis #f)
+  (define-values (old-x old-y) (match frontend-state
+    [(list 'attack x y) (values x y)]
+    [_ (values 1 1)]))
   (for ([msg resp])
     (match msg
       [(list 'err str) (consolef "!" str)]
@@ -311,7 +317,9 @@
       [(list 'death target) (consolef "*" "~a died." (actor-name target))]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
   (display-all st)
-  (printf "\x1bu")) ;; load initial cursor position
+  (charterm-cursor old-x old-y)
+  (set-cursor-vis old-cursor-vis)
+  (void))
 
 
 ;; initialize UI
