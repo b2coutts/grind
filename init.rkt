@@ -30,45 +30,32 @@
   '#hash((maxhp . 10) (str . 5) (skl . 5) (def . 5) (spd . 1) (ran . 1))
   skill-table
   (fmt #\M 32 40)
-  (cons 1 1)
+  (cons 20 20)
 ))
 
 (define slime (actor
   "slime"
   2
   2
-  5
+  8
   '#hash((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
   (fmt #\S 31 40)
-  (cons 1 3)
+  (cons 40 4)
 ))
 
 (define rock-golem (actor
   "rock golem"
   3
   3
-  2
-  '#hash((maxhp . 12) (str . 1) (skl . 0) (def . 4) (spd . 1) (ran . 1))
+  22
+  '#hash((maxhp . 25) (str . 1) (skl . 0) (def . 4) (spd . 1) (ran . 1))
   (sarray 0 0 (vector))
   (fmt #\R 31 40)
-  (cons 3 3)
+  (cons 4 1)
 ))
 
-;; 5x5 grid with the following layout
-;; X X X X X
-;; X E _ E X
-;; X _ _ _ X
-;; X U _ _ X
-;; X X X X X
-(define cells (vector
-  'wall  'wall  'wall  'wall  'wall
-  'wall  'floor 'floor 'floor 'wall
-  'wall  'floor 'floor 'floor 'wall
-  'wall  'floor 'floor 'floor 'wall
-  'wall  'wall  'wall  'wall  'wall
-))
-
-(define btlmap (grmap 5 5 cells (gvector slime rock-golem)))
+(define btlmap (read-map "test.map"))
+(set-grmap-enemies! btlmap (gvector slime rock-golem))
 
 (define game-state (state usr 'battle btlmap))

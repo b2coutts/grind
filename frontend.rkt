@@ -13,7 +13,7 @@
 ;; some global state
 (define console-lines (make-queue))
   (for ([i map-height]) (enqueue! console-lines ""))
-(define active-enemies (gvector))
+(define active-enemies '())
 (define frontend-state 'map)
 
 (open-charterm)
@@ -46,7 +46,7 @@
 (define/contract (make-health-bar hp maxhp [width 10])
   (->* (integer? integer?) (integer?) string?)
   (define pct (/ hp maxhp))
-  (define slashes (ceiling (* pct width)))
+  (define slashes (min width (ceiling (* pct width))))
   (define color (cond
     [(< pct 0.35) 31] ;; red
     [(< pct 0.65) 33] ;; yellow
@@ -82,11 +82,10 @@
   (-> state? void?)
   (define uloc (actor-loc (state-user st)))
   (set! active-enemies
-    (for/gvector ([enm (grmap-enemies (state-fmap st))]
-                  [idx (in-naturals)]
-                  ;; TODO: almost certainly a off-by-1 error here
-                  #:when (and enm (<= (- (car (actor-loc enm)) (car uloc)) (/ map-width 2))
-                                  (<= (- (cdr (actor-loc enm)) (cdr uloc)) (/ map-height 2))))
+    (for/list ([enm (grmap-enemies (state-fmap st))]
+               [idx (in-naturals)]
+               #:when (let-values ([(x y) (if enm (map->term st (actor-loc enm)) (values 0 0))])
+                        (and (< 1 x map-width) (< 1 y map-height))))
       idx)))
 
 ;; set cursor visibility
@@ -157,7 +156,7 @@
 (define/contract (display-console)
   (-> void?)
   ;; TODO: deal with having too many enemies on screen
-  (define top (+ 4 (* 3 (gvector-count active-enemies))))
+  (define top (+ 4 (* 3 (length active-enemies))))
   (for ([line (reverse (queue->list console-lines))]
         [row (in-range (- map-height 1) top -1)])
     (charterm-cursor (+ map-width 1) row)
@@ -268,8 +267,17 @@
                                 #:after-last ".\n"))])])
   (dash 80 #\=))
 
+;; redisplays everything
+(define/contract (display-all st)
+  (-> state? void?)
+  (update-active-enemies! st)
+  (display-map st)
+  (display-user st)
+  (display-active-enemies st)
+  (display-console))
+
 ;; handles responses from the backend
-;; TODO: should make things refresh at most once, i.e., don't redraw map one each for move/death
+;; TODO: should maybe make it only refresh what needs to be refreshed
 (define/contract (handle-response st resp)
   (-> state? response? void?)
   (printf "\x1bs") ;; save current cursor position
@@ -277,7 +285,7 @@
     (match msg
       [(list 'err str) (consolef "!" str)]
       [(list 'info str) (consolef "*" str)]
-      [(list 'move loc) (display-map st)]
+      [(list 'move loc) (void)]
       [(list 'skill-gain x y)
         (match (vector-ref (get-skill st x y) 3)
           [(skill name _ _ _ _) (consolef "*" "You learned ~a."
@@ -289,22 +297,16 @@
                                                #:after-last "."))])]
       ;; TODO: update HUD
       [(list 'damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
-      [(list 'death target) (display-map st)
-                            (update-active-enemies! st)
-                            (display-active-enemies st)
-                            (consolef "*" "~a died." (actor-name target))]
+      [(list 'death target) (consolef "*" "~a died." (actor-name target))]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
+  (display-all st)
   (printf "\x1bu")) ;; load initial cursor position
 
 
 ;; initialize UI
 (define st game-state)
 (set-cursor-vis #f)
-(update-active-enemies! st)
-(display-map st)
-(display-user st)
-(display-active-enemies st)
-(display-console)
+(display-all st)
 
 (define (loop)
   ;; note: in asciitan I discovered a charterm bug where this would not sync despite input being

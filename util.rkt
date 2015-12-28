@@ -1,7 +1,7 @@
 #lang racket
 ;; miscellaneous helper functions
 
-(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms)
+(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms read-map)
 
 (require "state.rkt")
 (require data/gvector)
@@ -69,3 +69,18 @@
   (for/list ([enm (grmap-enemies (state-fmap st))]
              #:when (> (actor-hp enm) 0))
     enm))
+
+;; reads a map from a file
+(define/contract (read-map file)
+  (-> path-string? grmap?)
+  (with-input-from-file file (thunk
+    (define width (string->number (read-line)))
+    (define height (string->number (read-line)))
+    (define cells
+      (for/vector ([ch (current-input-port)]
+                   #:unless (char=? (integer->char ch) #\newline))
+        (match (integer->char ch)
+          [#\X        'wall]
+          [#\space    'floor]
+          [c (error (format "read-map: unexpected character: ~s" c))])))
+    (grmap width height cells (gvector)))))
