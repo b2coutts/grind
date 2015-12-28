@@ -12,12 +12,12 @@
   (list (list 'err str)))
 
 ;; produces a string displaying an object with given escape codes, then changes to white-on-black
-(define/contract (fmt datum . codes)
-  (->* (any/c) #:rest (listof integer?) string?)
+;(->* (any/c) #:rest (listof integer?) string?)
+(define (fmt datum . codes)
   (define esc-str (cond
     [(empty? codes) ""]
-    [else (format "\x1b[~am" (string-join (map ~a codes) ";"))]))
-  (string-append esc-str (format "~a\x1b[0;97m" datum)))
+    [else (string-append "\x1b[" (string-join (map number->string codes) ";") "m")]))
+  (string-append esc-str (~a datum) "\x1b[0;97m"))
 
 ;; manhattan distance between two locations
 (define/contract (loc-dist a b)
@@ -25,8 +25,8 @@
   (+ (abs (- (car a) (car b))) (abs (- (cdr a) (cdr b)))))
 
 ;; get cell at location (x,y)
-(define/contract (grmap-ref fmap x y)
-  (-> grmap? integer? integer? cell?)
+(define (grmap-ref fmap x y)
+  ;(-> grmap? integer? integer? cell?)
   (vector-ref (grmap-cells fmap) (+ (* (grmap-width fmap) y) x)))
 
 ;; finds a target at given location, or #f if none exists

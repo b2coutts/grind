@@ -178,14 +178,28 @@
   (charterm-cursor 1 1)
   (charterm-display (make-bar map-width))
   (for ([row (- map-height 2)])
+    (match-define (cons x0 y) (term->map st 2 (+ row 2)))
     (charterm-cursor 1 (+ row 2))
-    (charterm-display bar)
+    (charterm-display (apply string-append `(
+      ,bar
+      ,@(for/list ([col (- map-width 2)])
+          (define x (+ x0 col))
+          (cond
+            [(not (and (< -1 x width) (< -1 y height))) " "]
+            [else (hash-ref glyphs
+            (cons x y)
+            (thunk
+            (cell->string
+            (grmap-ref gm x y))))]))
+      ,bar))))
+    #|
     (for ([col (- map-width 2)])
       (match-define (cons x y) (term->map st (+ col 2) (+ row 2)))
       (charterm-display (cond
         [(not (and (< -1 x width) (< -1 y height))) #\space]
         [else (hash-ref glyphs (cons x y) (thunk (cell->string (grmap-ref gm x y))))])))
     (charterm-display bar))
+    |#
   (charterm-cursor 1 map-height)
   (charterm-display (make-bar map-width)))
 
