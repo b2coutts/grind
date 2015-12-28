@@ -5,6 +5,9 @@
 (require "state.rkt" "util.rkt" "backend.rkt" "bindings.rkt")
 (require (planet neil/charterm) data/gvector data/queue)
 
+(require profile profile/render-text)
+
+(profile-thunk (thunk
 ;; various UI constants
 (define map-width 40)
 (define map-height 40)
@@ -315,8 +318,9 @@
   (define evt (sync (current-charterm)))
   (define input (hash-ref bindings (charterm-read-key) (thunk #f)))
   (when (equal? input 'quit)
+    (close-charterm)
     (set-cursor-vis #t)
-    (exit))
+    (error "exit"))
   (handle-response st (match (state-context st)
     ['battle (match frontend-state
       ['map (match input
@@ -351,3 +355,9 @@
               '()])])]))
   (loop))
 (loop)
+#|
+) #:render (lambda (p) (with-output-to-file "output.txt" (thunk
+  (printf "foo\n")
+  (render p)) #:exists 'truncate)))
+|#
+))
