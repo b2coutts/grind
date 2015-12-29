@@ -15,6 +15,11 @@
 (define map-height 40)
 (define hud-width 40)
 
+;; location and dimensions of skill select window
+;; TODO: should fix width/height, or let it adjust dynamically?
+(define skill-x0 1)
+(define skill-y0 1)
+
 ;; some global state
 (define console-lines (make-queue))
   (for ([i map-height]) (enqueue! console-lines ""))
@@ -44,8 +49,8 @@
                                         [idx N]
                                         #:when (equal? ch #\space))
                               idx)
-                        [idx idx]
-                        [#f N]))
+                        [#f N]
+                        [idx idx]))
           (cons (substring str 0 idx) (wrap N (substring str (+ idx 1))))]))
 
 ;; creates a bar of length len with the form +-----+
@@ -101,7 +106,7 @@
 
 ;; set cursor visibility
 ;; TODO: this and other things should really use tput
-(define/contract (set-cursor-vis vis)
+(define/contract (set-cursor-vis! vis)
   (-> boolean? void?)
   (set! cursor-vis vis)
   (printf "\x1b\x5b\x3f\x32\x35~a" (if cursor-vis "\x68" "\x6c"))
@@ -110,7 +115,7 @@
 ;; displays user info
 (define/contract (display-user st)
   (-> state? void?)
-  (match-define (and usr (actor name lvl _ hp _ _ _)) (state-user st))
+  (match-define (and usr (actor name lvl sp hp _ _ _)) (state-user st))
   (charterm-cursor map-width 1)
     (charterm-display (make-bar hud-width))
 
@@ -121,7 +126,7 @@
     (charterm-display (fmt " |" 90))
 
   (charterm-cursor map-width 3)
-    (charterm-display (format "~a LV ~a (MV ~a/~a)" bar lvl #\? (actor-stat usr 'spd)))
+    (charterm-display (format "~a SP ~a (MV ~a/~a)" bar sp #\? (actor-stat usr 'spd)))
   (define stat-str (string-join (for/list ([stat '(str skl def spd ran)])
                                   (~a (actor-stat usr stat)))
                                 "/"))
@@ -216,6 +221,37 @@
   ))
 
 
+;; printf for console
+(define/contract (consolef lbl fstr . args)
+  (->* (string? string?) #:rest (listof any/c) void?)
+  (define lines (wrap (- hud-width 3 (string-length lbl)) (apply (curry format fstr) args)))
+  (enqueue! console-lines (format " ~a ~a " lbl (first lines)))
+  (for ([line (rest lines)])
+    (enqueue! console-lines (format " ~a ~a " (make-string (string-length lbl) #\space) line)))
+  (for ([i (max 0 (- (queue-length console-lines) map-height))])
+    (dequeue! console-lines))
+  (display-console))
+
+;; displays a menu of usable skills to choose from
+;; TODO: should include attack?
+(define/contract (display-skill-select st idcs active)
+  (-> state? (listof integer?) integer? void?)
+  (define sks (vector-map (curryr vector-ref 3) (sarray-skills (actor-skills (state-user st)))))
+  (define width (apply max (map (lambda (i) (string-length (skill-name (vector-ref sks i)))) idcs)))
+  (define height (+ 2 (length idcs)))
+  (charterm-cursor skill-x0 skill-y0)
+  (charterm-display (make-bar (+ width 2)))
+  (for ([i idcs]
+        [pos (in-naturals)])
+    (define style (if (equal? pos active) 44 0))
+    (charterm-cursor skill-x0 (+ skill-y0 pos 1))
+    (charterm-display (string-append
+      bar
+      (fmt (~a (skill-name (vector-ref sks i)) #:min-width width #:align 'left) style)
+      bar)))
+  (charterm-cursor skill-x0 (+ skill-y0 height -1))
+  (charterm-display (make-bar (+ width 2))))
+
 ;; produces the appropriate terminal escape codes for a given skill
 (define/contract (skill-ansi-codes st x y)
   (-> state? integer? integer? (listof integer?))
@@ -232,6 +268,7 @@
 
   (append (list (+ base-color intensity)) bold))
 
+#|
 ;; displays the skill table
 (define/contract (display-skills st)
   (-> state? void?)
@@ -242,24 +279,6 @@
       (define skill-char (if (vector-ref sk 1) (vector-ref sk 2) #\?))
       (display (apply (curry fmt skill-char) (skill-ansi-codes st col row))))
     (newline)))
-
-;; printf for console
-(define/contract (consolef lbl fstr . args)
-  (->* (string? string?) #:rest (listof any/c) void?)
-  (define lines (wrap (- hud-width 3 (string-length lbl)) (apply (curry format fstr) args)))
-  (enqueue! console-lines (format " ~a ~a " lbl (first lines)))
-  (for ([line (rest lines)])
-    (enqueue! console-lines (format " ~a ~a " (make-string (string-length lbl) #\space) line)))
-  (for ([i (max 0 (- (queue-length console-lines) map-height))])
-    (dequeue! console-lines))
-  (display-console))
-
-;; displays a line of n dashes
-(define (dash n [char #\-])
-  (-> integer? void?)
-  (for ([i n])
-    (display char))
-  (newline))
 
 ;; prints info about a specific skill
 (define/contract (display-skill-info st x y)
@@ -287,6 +306,7 @@
                                 #:before-first "Increases "
                                 #:after-last ".\n"))])])
   (dash 80 #\=))
+|#
 
 ;; redisplays everything
 (define/contract (display-all st)
@@ -295,16 +315,19 @@
   (display-map st)
   (display-user st)
   (display-active-enemies st)
-  (display-console))
+  (display-console)
+  (match frontend-state
+    [(list 'skill idx) (display-skill-select st (known-skills st) idx)]
+    [_ (void)]))
 
 ;; handles responses from the backend
 ;; TODO: should maybe make it only refresh what needs to be refreshed
 (define/contract (handle-response st resp)
   (-> state? response? void?)
   (define old-cursor-vis cursor-vis)
-  (set-cursor-vis #f)
+  (set-cursor-vis! #f)
   (define-values (old-x old-y) (match frontend-state
-    [(list 'attack x y) (values x y)]
+    [(list 'target x y _) (values x y)]
     [_ (values 1 1)]))
   (for ([msg resp])
     (match msg
@@ -320,30 +343,40 @@
                                                ", "
                                                #:before-first "You gained "
                                                #:after-last "."))])]
-      ;; TODO: update HUD
+      [(list 'heal amt target) (consolef "*" "~a heals ~a HP." (actor-name target) amt)]
       [(list 'damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
       [(list 'death target) (consolef "*" "~a died." (actor-name target))]
+      [(list 'sp amt) (consolef "*" "You gained ~a SP." amt)]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
   (display-all st)
   (charterm-cursor old-x old-y)
-  (set-cursor-vis old-cursor-vis)
+  (set-cursor-vis! old-cursor-vis)
   (void))
 
 
 ;; initialize UI
 (define st game-state)
-(set-cursor-vis #f)
+(set-cursor-vis! #f)
 (display-all st)
+
+;; changes frontend state to target (starting at user, w/ skill sk)
+(define/contract (frontend-target! st sk)
+  (-> state? (or/c 'attack integer?) void?)
+  (define-values (col row) (map->term st (actor-loc (state-user st))))
+  (set! frontend-state (list 'target col row sk))
+  (charterm-cursor col row)
+  (set-cursor-vis! #t))
 
 (define (loop)
   ;; note: in asciitan I discovered a charterm bug where this would not sync despite input being
   ;; ready (would lag 1 behind user input); may want to workaround this if it comes up
   (match-define (cons x y) (actor-loc (state-user st)))
+  (define skill-vec (sarray-skills (actor-skills (state-user st))))
   (define evt (sync (current-charterm)))
   (define input (hash-ref bindings (charterm-read-key) (thunk #f)))
   (when (equal? input 'quit)
     (close-charterm)
-    (set-cursor-vis #t)
+    (set-cursor-vis! #t)
     (error "exit"))
   (handle-response st (match (state-context st)
     ['battle (match frontend-state
@@ -352,30 +385,40 @@
         ['down   (move-user! st (cons x (add1 y)))]
         ['up     (move-user! st (cons x (sub1 y)))]
         ['right  (move-user! st (cons (add1 x) y))]
-        ['select (define-values (col row) (map->term st (cons x y)))
-                 (set! frontend-state (list 'attack col row))
-                 (charterm-cursor col row)
-                 (set-cursor-vis #t)
-                 '()]
+        ['select (frontend-target! st 'attack) '()]
         ['back   (err "back not implemented")]
-        ['menu   (err "menu not implemented")]
+        ['menu   (set! frontend-state (list 'skill 0)) '()]
         [#f      '()])]
-      [(list 'attack x y) (define resp (match input
-        ['left   (set! x (max 2 (sub1 x)))]
-        ['down   (set! y (min (- map-height 1) (add1 y)))]
-        ['up     (set! y (max 2 (sub1 y)))]
-        ['right  (set! x (min (- map-width 1) (add1 x)))]
+      [(list 'skill idx) (match input
+        ['up     (set! frontend-state (list 'skill (max 0 (sub1 idx)))) '()]
+        ['down   (set! frontend-state (list 'skill
+                    (min (sub1 (length (known-skills st))) (add1 idx)))) '()]
+        ['select (match (vector-ref skill-vec (list-ref (known-skills st) idx))
+          [(vector #t _ _ (skill _ 'damage _ _ _)) 
+            (frontend-target! st (list-ref (known-skills st) idx)) '()]
+          [(vector #t _ _ (skill _ 'heal _ _ _))
+            (set! frontend-state 'map)
+            (use-skill! st (list-ref (known-skills st) idx) (cons x y))])]
+        ['back   (set! frontend-state 'map) '()]
+        [_ '()])]
+      [(list 'target tx ty sk) (define resp (match input
+        ['left   (set! tx (max 2 (sub1 tx)))]
+        ['down   (set! ty (min (- map-height 1) (add1 ty)))]
+        ['up     (set! ty (max 2 (sub1 ty)))]
+        ['right  (set! tx (min (- map-width 1) (add1 tx)))]
         ['select (set! frontend-state 'map)
-                 (set-cursor-vis #f)
-                 (attack! st (term->map st x y))]
+                 (set-cursor-vis! #f)
+                 (match sk
+                  ['attack    (attack! st (term->map st tx ty))]
+                  [skill-idx  (use-skill! st skill-idx (term->map st tx ty))])]
         ['back   (set! frontend-state 'map)
-                 (set-cursor-vis #f)
+                 (set-cursor-vis! #f)
                  '()]
         [_ '()]))
        (cond
         [(not (member input '(left down up right))) resp]
-        [else (set! frontend-state (list 'attack x y))
-              (charterm-cursor x y)
+        [else (set! frontend-state (list 'target tx ty sk))
+              (charterm-cursor tx ty)
               '()])])]))
   (loop))
 (loop)

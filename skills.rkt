@@ -16,7 +16,8 @@
   (skill name 'heal power 0 (lambda (st loc)
     (define usr (state-user st))
     (define amt (+ (actor-stat usr 'skl) power))
-    (set-actor-hp! usr (min (actor-stat usr 'maxhp) (+ (actor-hp usr) amt))))))
+    (set-actor-hp! usr (min (actor-stat usr 'maxhp) (+ (actor-hp usr) amt)))
+    (list (list 'heal amt usr)))))
 
 ;; constructs a damaging skill
 (define/contract (make-dmgr name power range)

@@ -19,5 +19,6 @@
       [(= (actor-hp target) 0)
         (gvector-remove! enms target-idx)
         (set-actor-sp! (state-user st) (+ (actor-sp (state-user st)) (actor-sp target)))
-        (list (list 'death target))]
+        (list (list 'death target))
+        (list (list 'sp (actor-sp target)))]
       [else '()])))

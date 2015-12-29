@@ -1,7 +1,8 @@
 #lang racket
 ;; miscellaneous helper functions
 
-(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms read-map)
+(provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms read-map
+         known-skills)
 
 (require "state.rkt")
 (require data/gvector)
@@ -84,3 +85,13 @@
           [#\space    'floor]
           [c (error (format "read-map: unexpected character: ~s" c))])))
     (grmap width height cells (gvector)))))
+
+;; produces a list of (the indices of) the usable skills known by the user
+(define/contract (known-skills st)
+  (-> state? (listof integer?))
+  (for/list ([skl (sarray-skills (actor-skills (state-user st)))]
+             [idx (in-naturals)]
+             #:when (match skl
+                      [(vector #t _ _ (skill _ (or 'damage 'heal) _ _ _)) #t]
+                      [_ #f]))
+    idx))

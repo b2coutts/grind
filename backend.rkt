@@ -61,9 +61,9 @@
         (list (list 'skill-gain x y))])]))
 
 ;; use a skill at target
-(define/contract (use-skill! st x y loc)
-  (-> state? integer? integer? location? response?)
-  (match (get-skill st x y)
+(define/contract (use-skill! st idx loc)
+  (-> state? integer? location? response?)
+  (match (vector-ref (sarray-skills (actor-skills (state-user st))) idx)
     [#f (err "Invalid skill")]
     [(vector #f _ _ _) (err "You have not learned that skill yet.")]
     [(vector _ _ _ (? stats?)) (err "That is not an active skill.")]
