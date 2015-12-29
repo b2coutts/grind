@@ -311,14 +311,14 @@
 ;; redisplays everything
 (define/contract (display-all st)
   (-> state? void?)
-  (update-active-enemies! st)
-  (display-map st)
-  (display-user st)
-  (display-active-enemies st)
-  (display-console)
   (match frontend-state
     [(list 'skill idx) (display-skill-select st (known-skills st) idx)]
-    [_ (void)]))
+    [(list 'target _ _ _) (void)]
+    [_ (update-active-enemies! st)
+       (display-map st)
+       (display-user st)
+       (display-active-enemies st)
+       (display-console)]))
 
 ;; handles responses from the backend
 ;; TODO: should maybe make it only refresh what needs to be refreshed
@@ -395,6 +395,7 @@
                     (min (sub1 (length (known-skills st))) (add1 idx)))) '()]
         ['select (match (vector-ref skill-vec (list-ref (known-skills st) idx))
           [(vector #t _ _ (skill _ 'damage _ _ _)) 
+            (display-map st)
             (frontend-target! st (list-ref (known-skills st) idx)) '()]
           [(vector #t _ _ (skill _ 'heal _ _ _))
             (set! frontend-state 'map)
