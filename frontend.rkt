@@ -10,7 +10,7 @@
 (profile-thunk (thunk
 |#
 
-;; various UI constants
+;; ----------------------------various UI constants----------------------------
 (define map-width 40)
 (define map-height 40)
 (define hud-width 40)
@@ -59,12 +59,12 @@
                                      #:when (char=? ch #\space))
                             idx))
               (define this-str (string-append cur-line (substring str 0 idx)
-                                (make-string (- N idx cur-len 1) #\space)))
+                                (make-string (- N idx cur-len) #\space)))
               (values (cons this-str lines) (substring str (+ idx 1)) (- len idx 1))])))
   (cond
     [(> cur-len N) (append (reverse lines) (gwrap N cur-line))]
     [(= cur-len 0) (reverse lines)]
-    [else (reverse (cons (string-append cur-line (make-string (- N cur-len 1) #\space)) lines))]))
+    [else (reverse (cons (string-append cur-line (make-string (- N cur-len) #\space)) lines))]))
 
 ;; creates a bar of length len with the form +-----+
 (define/contract (make-bar len [mid #\-] [end #\+])
@@ -237,7 +237,7 @@
 ;; printf for console
 (define/contract (consolef lbl fstr . args)
   (->* (string? string?) #:rest (listof any/c) void?)
-  (define lines (gwrap (- hud-width 3 (string-length lbl)) (apply (curry format fstr) args)))
+  (define lines (gwrap (- hud-width 4 (string-length lbl)) (apply (curry format fstr) args)))
   (enqueue! console-lines (format " ~a ~a" lbl (first lines)))
   (for ([line (rest lines)])
     (enqueue! console-lines (format " ~a ~a" (make-string (string-length lbl) #\space) line)))
@@ -299,34 +299,43 @@
   (charterm-cursor stable-x0 (+ 1 stable-y0 height))
   (charterm-display (make-bar (+ width 2))))
 
-#|
-;; prints info about a specific skill
-(define/contract (display-skill-info st x y)
+;; displays the skill info window
+(define/contract (display-sinfo st x y)
   (-> state? integer? integer? void?)
-  (dash 80 #\=)
-  (match (get-skill st x y)
-    [(vector _ #f _ _)
-      (printf "?????\n")
-      (dash 5)
-      (printf "You cannot see this skill yet.\n")]
-    [(vector learned #t cost s)
-      (define name (apply (curry fmt (if (skill? s) (skill-name s) "Stats"))
-                          (skill-ansi-codes st x y)))
-      (printf "~a~a (cost: ~a SP)\n" name (if learned " (LEARNED)" "") cost)
-      (dash 80)
-      (match s
-        [(skill _ 'damage pwr ran _)
-          (printf "Range: ~a. Deals (~a+skl) damage to target.\n" ran pwr)]
-        [(skill _ 'heal pwr _ _)
-          (printf "Range: N/A. Heals self for (~a+skl) HP.\n" pwr)]
-        [(? stats?)
-          (display (string-join (for/list ([(stat val) s] #:when (> val 0))
-                                  (format "~a+~a" stat val))
-                                ", "
-                                #:before-first "Increases "
-                                #:after-last ".\n"))])])
-  (dash 80 #\=))
-|#
+  (define name (match (get-skill st x y)
+    [(vector _ #f _ _) "?????"]
+    [(vector #f #t cost s) (format "~a (SP: ~a)" (ss-name s) cost)]
+    [(vector #t #t cost s) (format "~a (SP: ~a) LEARNED" (ss-name s) cost)]))
+
+  (define msg (match (get-skill st x y)
+    [(vector _ #f _ _) "You can't see this skill yet."]
+    [(vector _ #t _ s) (match s
+      [(skill _ 'damage pwr ran _) (format "Deals (~a+skl) damage to target. Range: ~a" pwr ran)]
+      [(skill _ 'heal pwr _ _) (format "Heals self for (~a+skl) HP" pwr)]
+      [(? stats? s) (string-join (for/list ([(stat val) s] #:when (> val 0))
+                                    (format "~a+~a" stat val))
+                                 ", "
+                                 #:before-first "Increases ")])]))
+
+  (define lines (gwrap (- map-width 3) msg))
+  (define sinfo-y0 (- map-height (length lines) 3))
+
+  (charterm-cursor 1 sinfo-y0)
+  (charterm-display (make-bar map-width))
+
+  (define name-pad (make-string (- map-width (string-length name) 3) #\space))
+  (charterm-cursor 1 (+ 1 sinfo-y0))
+  (charterm-display (string-append bar " " name name-pad bar))
+  (charterm-cursor 1 (+ 2 sinfo-y0))
+  (charterm-display (string-append bar " " (make-string (string-length name) #\-) name-pad bar))
+
+  (for ([line lines]
+        [pos (in-naturals)])
+    (charterm-cursor 1 (+ 3 pos sinfo-y0))
+    (charterm-display (string-append bar " " line bar)))
+
+  (charterm-cursor 1 map-height)
+  (charterm-display (make-bar map-width)))
 
 ;; redisplays everything
 (define/contract (display-all st)
@@ -334,7 +343,9 @@
   (match frontend-state
     [(list 'skill idx) (display-skill-select st (known-skills st) idx)]
     [(list 'target _ _ _) (void)]
-    [(list 'skill-table _ _) (display-stable st)
+    [(list 'skill-table x y) (display-map st)
+                             (display-stable st)
+                             (display-sinfo st x y)
                              (display-console)]
     [_ (update-active-enemies! st)
        (display-map st)
