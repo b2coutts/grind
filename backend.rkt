@@ -51,12 +51,12 @@
                        (< (+ (abs dx) (abs dy)) 3)))
       (vector-set! (get-skill st (+ x dx) (+ y dy)) 1 #t)))
   (cond
-    [(not (can-learn? st x y)) (err "You can't learn this skill yet!")]
+    [(not (can-learn? st x y)) (err "You can't learn this skill yet.")]
     [else (match (get-skill st x y)
       [#f (err "No skill at (~a,~a)!" x y)]
-      [(vector #t _ _ _) (err "Already learned this skill!")]
-      [(vector _ _ (? (curry < (actor-sp usr))) _) (err "You don't have enough SP!")]
-      [(vector #f #t cost _)
+      [(vector #t _ _ s) (err "You have already learned ~a." (ss-name s))]
+      [(vector #f _ (? (curry < (actor-sp usr))) _) (err "You don't have enough SP!")]
+      [(vector #f _ cost _)
         (apply-sp! cost)
         (list (list 'skill-gain x y))])]))
 
@@ -65,8 +65,8 @@
   (-> state? integer? location? response?)
   (match (vector-ref (sarray-skills (actor-skills (state-user st))) idx)
     [#f (err "Invalid skill")]
-    [(vector #f _ _ _) (err "You have not learned that skill yet.")]
-    [(vector _ _ _ (? stats?)) (err "That is not an active skill.")]
+    [(vector #f _ _ s) (err "You have not learned ~a yet." (ss-name s))]
+    [(vector _ _ _ (? stats? s)) (err "~a is not an active skill." (ss-name s))]
     [(vector #t _ _ sk) ((skill-effect sk) st loc)]))
 
 ;; echo function for debug purposes

@@ -2,15 +2,15 @@
 ;; miscellaneous helper functions
 
 (provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms read-map
-         known-skills)
+         known-skills ss-name)
 
 (require "state.rkt")
 (require data/gvector)
 
 ;; produces a simple error response
-(define/contract (err str)
+(define (err fstr . args)
   (-> string? (listof any/c))
-  (list (list 'err str)))
+  (list (list 'err (apply (curry format fstr) args))))
 
 ;; produces a string displaying an object with given escape codes, then changes to white-on-black
 ;(->* (any/c) #:rest (listof integer?) string?)
@@ -95,3 +95,10 @@
                       [(vector #t _ _ (skill _ (or 'damage 'heal) _ _ _)) #t]
                       [_ #f]))
     idx))
+
+;; produces the name of a skill or statup
+(define/contract (ss-name s)
+  (-> (or/c skill? stats?) string?)
+  (match s
+    [(skill name _ _ _ _) name]
+    [(? stats?)           "Stats"]))

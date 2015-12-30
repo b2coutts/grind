@@ -19,8 +19,10 @@
   spd1        ran1      ember           all1
   all3        third-aid snipe           all3
 ))))
-(for ([idx '(0 2 14)])
+(for ([idx '(0)]) ;; initially known skills
   (vector-set! (vector-ref (sarray-skills skill-table) idx) 0 #t))
+(for ([idx '(1 4)]) ;; initially visible skills
+  (vector-set! (vector-ref (sarray-skills skill-table) idx) 1 #t))
 
 (define usr (actor
   "miles"

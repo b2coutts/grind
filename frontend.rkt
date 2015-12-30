@@ -15,10 +15,14 @@
 (define map-height 40)
 (define hud-width 40)
 
-;; location and dimensions of skill select window
+;; location of skill select window
 ;; TODO: should fix width/height, or let it adjust dynamically?
 (define skill-x0 1)
 (define skill-y0 1)
+
+;; location of skill table window
+(define stable-x0 1)
+(define stable-y0 1)
 
 ;; some global state
 (define console-lines (make-queue))
@@ -258,7 +262,7 @@
   (match-define (vector learned visible cost s) (get-skill st x y))
 
   (define base-color (cond
-    [(not visible) 90]
+    [(not visible) 97]
     [(skill? s) (skill->color s)]
     [(stats? s) 35]))
 
@@ -267,6 +271,24 @@
   (define intensity (if (can-learn? st x y) 60 0))
 
   (append (list (+ base-color intensity)) bold))
+
+;; displays the skill table
+(define/contract (display-stable st)
+  (-> state? void?)
+  (match-define (sarray width height skills) (actor-skills (state-user st)))
+  (charterm-cursor stable-x0 stable-y0)
+  (charterm-display (make-bar (+ width 2)))
+  (for ([row height])
+    (charterm-cursor stable-x0 (+ 1 stable-y0 row))
+    (charterm-display (string-append
+      bar
+      (apply string-append (for/list ([col height])
+        (define sk (get-skill st col row))
+        (define skill-char (if (vector-ref sk 1) (vector-ref sk 2) #\?))
+        (apply (curry fmt skill-char) (skill-ansi-codes st col row))))
+      bar)))
+  (charterm-cursor stable-x0 (+ 1 stable-y0 height))
+  (charterm-display (make-bar (+ width 2))))
 
 #|
 ;; displays the skill table
@@ -314,6 +336,8 @@
   (match frontend-state
     [(list 'skill idx) (display-skill-select st (known-skills st) idx)]
     [(list 'target _ _ _) (void)]
+    [(list 'skill-table _ _) (display-stable st)
+                             (display-console)]
     [_ (update-active-enemies! st)
        (display-map st)
        (display-user st)
@@ -328,6 +352,7 @@
   (set-cursor-vis! #f)
   (define-values (old-x old-y) (match frontend-state
     [(list 'target x y _) (values x y)]
+    [(list 'skill-table x y) (values (+ 1 x skill-x0) (+ 1 y skill-y0))]
     [_ (values 1 1)]))
   (for ([msg resp])
     (match msg
@@ -342,7 +367,9 @@
                                                 (format "~a+~a" stat val))
                                                ", "
                                                #:before-first "You gained "
-                                               #:after-last "."))])]
+                                               #:after-last "."))])
+        (set-cursor-vis! #f)
+        (set! frontend-state 'map)]
       [(list 'heal amt target) (consolef "*" "~a heals ~a HP." (actor-name target) amt)]
       [(list 'damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
       [(list 'death target) (consolef "*" "~a died." (actor-name target))]
@@ -371,7 +398,8 @@
   ;; note: in asciitan I discovered a charterm bug where this would not sync despite input being
   ;; ready (would lag 1 behind user input); may want to workaround this if it comes up
   (match-define (cons x y) (actor-loc (state-user st)))
-  (define skill-vec (sarray-skills (actor-skills (state-user st))))
+  (define usr (state-user st))
+  (define skill-vec (sarray-skills (actor-skills usr)))
   (define evt (sync (current-charterm)))
   (define input (hash-ref bindings (charterm-read-key) (thunk #f)))
   (when (equal? input 'quit)
@@ -386,8 +414,10 @@
         ['up     (move-user! st (cons x (sub1 y)))]
         ['right  (move-user! st (cons (add1 x) y))]
         ['select (frontend-target! st 'attack) '()]
-        ['back   (err "back not implemented")]
-        ['menu   (set! frontend-state (list 'skill 0)) '()]
+        ['back   (set! frontend-state (list 'skill 0)) '()]
+        ['menu   (set! frontend-state (list 'skill-table 0 0))
+                 (set-cursor-vis! #t)
+                 '()]
         [#f      '()])]
       [(list 'skill idx) (match input
         ['up     (set! frontend-state (list 'skill (max 0 (sub1 idx)))) '()]
@@ -402,6 +432,21 @@
             (use-skill! st (list-ref (known-skills st) idx) (cons x y))])]
         ['back   (set! frontend-state 'map) '()]
         [_ '()])]
+      [(list 'skill-table sx sy) (define resp (match input
+        ['left   (set! sx (max 0 (sub1 sx)))]
+        ['right  (set! sx (min (sub1 (sarray-width (actor-skills usr))) (add1 sx)))]
+        ['up     (set! sy (max 0 (sub1 sy)))]
+        ['down   (set! sy (min (sub1 (sarray-height (actor-skills usr))) (add1 sy)))]
+        ['back   (set! frontend-state 'map)
+                 (set-cursor-vis! #f)
+                 '()]
+        ['select (learn-skill! st sx sy)]
+        [_ '()]))
+       (cond
+        [(not (member input '(left down up right))) resp]
+        [else (set! frontend-state (list 'skill-table sx sy))
+              (charterm-cursor (+ 1 sx stable-x0) (+ 1 sy stable-y0))
+              '()])]
       [(list 'target tx ty sk) (define resp (match input
         ['left   (set! tx (max 2 (sub1 tx)))]
         ['down   (set! ty (min (- map-height 1) (add1 ty)))]
