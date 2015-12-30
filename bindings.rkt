@@ -14,4 +14,5 @@
     (#\d            . back)
     (#\s            . menu)
     (ctrl-q         . quit)
+    (backspace      . debug)
   ))

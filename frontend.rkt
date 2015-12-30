@@ -26,7 +26,7 @@
 
 ;; some global state
 (define console-lines (make-queue))
-  (for ([i map-height]) (enqueue! console-lines ""))
+  (for ([i map-height]) (enqueue! console-lines (make-string (- hud-width 2) #\space)))
 (define active-enemies '())
 (define frontend-state 'map)
 (define cursor-vis #f)
@@ -43,19 +43,28 @@
   (-> integer? string?)
   (fmt (string-ref "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" (modulo idx 52)) 31))
 
-;; wraps a string to lines of at most N characters each
-;; TODO: handle terminal codes nicely
-(define/contract (wrap N str)
-  (-> integer? string? (listof string?))
+;; wraps mystr to N columns, while respecting terminal codes
+(define (gwrap N mystr)
+  (define-values (lines cur-line cur-len)
+    (for/fold ([lines    '()]
+               [cur-line ""]
+               [cur-len  0])
+              ([str (regexp-match* #rx"\x1b\\[[^m]*m" mystr #:gap-select? #t #:match-select car)])
+      (define len (if (box? str) (void) (string-length str)))
+      (cond
+        [(regexp-match #rx"\x1b" str) (values lines (string-append cur-line str) cur-len)]
+        [(<= (+ cur-len len) N) (values lines (string-append cur-line str) (+ cur-len len))]
+        [else (define idx (for/last ([ch  (substring str 0 (- N cur-len))]
+                                     [idx len]
+                                     #:when (char=? ch #\space))
+                            idx))
+              (define this-str (string-append cur-line (substring str 0 idx)
+                                (make-string (- N idx cur-len 1) #\space)))
+              (values (cons this-str lines) (substring str (+ idx 1)) (- len idx 1))])))
   (cond
-    [(<= (string-length str) N) (list str)]
-    [else (define idx (match (for/last ([ch (substring str 0 N)]
-                                        [idx N]
-                                        #:when (equal? ch #\space))
-                              idx)
-                        [#f N]
-                        [idx idx]))
-          (cons (substring str 0 idx) (wrap N (substring str (+ idx 1))))]))
+    [(> cur-len N) (append (reverse lines) (gwrap N cur-line))]
+    [(= cur-len 0) (reverse lines)]
+    [else (reverse (cons (string-append cur-line (make-string (- N cur-len 1) #\space)) lines))]))
 
 ;; creates a bar of length len with the form +-----+
 (define/contract (make-bar len [mid #\-] [end #\+])
@@ -176,14 +185,14 @@
     (display-actor st enm-idx slot-idx)))
 
 ;; refreshes the console display
+;; TODO: deal with having too many enemies on screen
 (define/contract (display-console)
   (-> void?)
-  ;; TODO: deal with having too many enemies on screen
   (define top (+ 4 (* 3 (length active-enemies))))
   (for ([line (reverse (queue->list console-lines))]
         [row (in-range (- map-height 1) top -1)])
     (charterm-cursor (+ map-width 1) row)
-    (charterm-display (fmt (~a line #:min-width 38 #:align 'left) 37))
+    (charterm-display (fmt line 37))
     (charterm-display bar))
   (charterm-cursor map-width map-height)
   (charterm-display (make-bar hud-width)))
@@ -228,10 +237,10 @@
 ;; printf for console
 (define/contract (consolef lbl fstr . args)
   (->* (string? string?) #:rest (listof any/c) void?)
-  (define lines (wrap (- hud-width 3 (string-length lbl)) (apply (curry format fstr) args)))
-  (enqueue! console-lines (format " ~a ~a " lbl (first lines)))
+  (define lines (gwrap (- hud-width 3 (string-length lbl)) (apply (curry format fstr) args)))
+  (enqueue! console-lines (format " ~a ~a" lbl (first lines)))
   (for ([line (rest lines)])
-    (enqueue! console-lines (format " ~a ~a " (make-string (string-length lbl) #\space) line)))
+    (enqueue! console-lines (format " ~a ~a" (make-string (string-length lbl) #\space) line)))
   (for ([i (max 0 (- (queue-length console-lines) map-height))])
     (dequeue! console-lines))
   (display-console))
@@ -291,17 +300,6 @@
   (charterm-display (make-bar (+ width 2))))
 
 #|
-;; displays the skill table
-(define/contract (display-skills st)
-  (-> state? void?)
-  (match-define (sarray width height skills) (actor-skills (state-user st)))
-  (for ([row height])
-    (for ([col width])
-      (define sk (get-skill st col row))
-      (define skill-char (if (vector-ref sk 1) (vector-ref sk 2) #\?))
-      (display (apply (curry fmt skill-char) (skill-ansi-codes st col row))))
-    (newline)))
-
 ;; prints info about a specific skill
 (define/contract (display-skill-info st x y)
   (-> state? integer? integer? void?)
@@ -418,6 +416,7 @@
         ['menu   (set! frontend-state (list 'skill-table 0 0))
                  (set-cursor-vis! #t)
                  '()]
+        ['debug  (echo "this is a very long test of a lot of text. this is a very long test of a lot of text. this is a very long test of a lot of text. this is a very long test of a lot of text. this is a very long test of a lot of text. this is a very long test of a lot of text.  this is a very long test of a lot of text. this is a very long test of a lot of text. this is a very long test of a lot of text.")]
         [#f      '()])]
       [(list 'skill idx) (match input
         ['up     (set! frontend-state (list 'skill (max 0 (sub1 idx)))) '()]
