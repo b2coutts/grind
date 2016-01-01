@@ -31,7 +31,7 @@
   (cond
     [(not enm-idx) (err (format "No target at ~a,~a!" (car loc) (cdr loc)))]
     [(> (loc-dist (actor-loc usr) loc) (actor-stat usr 'ran)) (err "Target out of range!")]
-    [else (append (apply-damage! st enm-idx (atk-damage usr (gvector-ref enms enm-idx)))
+    [else (append (enemy-damage! st enm-idx (atk-damage usr (gvector-ref enms enm-idx)) 'attack)
                   (enemy-turn! st))]))
 
 ;; teaches/applies the skill/statup at (x,y)
@@ -54,8 +54,11 @@
       [#f (err "No skill at (~a,~a)!" x y)]
       [(vector #t _ _ s) (err "You have already learned ~a." (ss-name s))]
       [(vector #f _ (? (curry < (actor-sp usr))) _) (err "You don't have enough SP!")]
-      [(vector #f _ cost _)
+      [(vector #f _ cost s)
         (apply-sp! cost)
+        (when (stats? s)
+          (for ([(stat val) s])
+            (hash-set! (actor-stats usr) stat (+ (actor-stat usr stat) val))))
         (list (list 'skill-gain x y))])]))
 
 ;; use a skill at target

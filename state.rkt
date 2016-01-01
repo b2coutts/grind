@@ -30,8 +30,9 @@
 
 ;; contains actor stats
 (define (stats? x)
-  (and (hash? x) (equal? (sort (hash-keys x) symbol<?)
-                         (sort '(maxhp str skl def spd ran) symbol<?))))
+  (and (hash? x)
+       (equal? (sort (hash-keys x) symbol<?)
+               (sort '(maxhp str skl def spd ran) symbol<?))))
 
 ;; contains a skill array
 (define-struct/contract sarray (

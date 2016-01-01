@@ -21,7 +21,8 @@
   (cond
     [(<= (actor-mvs enm) 0) '()]
     [(> usr-dist vision-radius) '()]
-    [(<= usr-dist (actor-stat enm 'ran)) (user-damage! st (atk-damage enm (state-user st)))]
+    [(<= usr-dist (actor-stat enm 'ran))
+      (user-damage! st (atk-damage enm (state-user st)) enm 'attack)]
     [(empty? moves) '()]
     [else (define mv (list-ref moves (random (length moves))))
           (set-actor-loc! enm mv)

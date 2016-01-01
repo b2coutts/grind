@@ -30,7 +30,7 @@
   1
   2
   8
-  '#hash((maxhp . 10) (str . 5) (skl . 5) (def . 5) (spd . 1) (ran . 1))
+  (make-hash '((maxhp . 10) (str . 5) (skl . 5) (def . 5) (spd . 1) (ran . 1)))
   skill-table
   (cons 1 10)
 ))
@@ -41,7 +41,7 @@
   1
   2
   8
-  '#hash((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1))
+  (make-hash '((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1)))
   (sarray 0 0 (vector))
   (cons 40 4)
 ))
@@ -52,7 +52,7 @@
   1
   3
   22
-  '#hash((maxhp . 25) (str . 4) (skl . 0) (def . 1) (spd . 2) (ran . 1))
+  (make-hash '((maxhp . 25) (str . 4) (skl . 0) (def . 1) (spd . 2) (ran . 1)))
   (sarray 0 0 (vector))
   (cons 4 1)
 ))

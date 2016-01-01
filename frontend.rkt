@@ -381,11 +381,17 @@
         (set-cursor-vis! #f)
         (set! frontend-state 'map)]
       [(list 'heal amt target) (consolef "*" "~a heals ~a HP." (actor-name target) amt)]
-      [(list 'enemy-damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
+      [(list 'enemy-damage 'attack dmg target)
+        (consolef "*" "You attack ~a for ~a damage." (actor-name target) dmg)]
+      [(list 'enemy-damage skname dmg target)
+        (consolef "*" "You use ~a on ~a for ~a damage." skname (actor-name target) dmg)]
       [(list 'death target) (consolef "*" "~a died." (actor-name target))]
-      [(list 'user-damage dmg) (consolef "*" "You took ~a damage." dmg)]
+      [(list 'user-damage atkr 'attack dmg)
+        (consolef "*" "~a attacks you for ~a damage." (actor-name atkr) dmg)]
+      [(list 'user-damage atkr skname dmg)
+        (consolef "*" "~a uses ~a on you for ~a damage." (actor-name atkr) skname dmg)]
       [(list 'user-death) (consolef "*" "You died!")]
-      [(list 'sp amt) (consolef "*" "You gained ~a SP." amt)]
+      [(list 'sp amt) (consolef "*" "You gain ~a SP." amt)]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
   (display-all st)
   (charterm-cursor old-x old-y)

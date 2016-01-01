@@ -1,6 +1,6 @@
 #lang racket
 
-(provide atk-damage apply-damage! user-damage!)
+(provide atk-damage enemy-damage! user-damage!)
 
 (require "state.rkt" "util.rkt")
 (require data/gvector)
@@ -13,13 +13,13 @@
   (max 0 (- (actor-stat atker 'str) -2 (actor-stat target 'def))))
 
 ;; applies damage to an enemy, handling effects (i.e. death)
-(define/contract (apply-damage! st target-idx dmg)
-  (-> state? integer? integer? response?)
+(define/contract (enemy-damage! st target-idx dmg skname)
+  (-> state? integer? integer? (or/c 'attack string?) response?)
   (define enms (grmap-enemies (state-fmap st)))
   (define target (gvector-ref enms target-idx))
   (set-actor-hp! target (max 0 (- (actor-hp target) dmg)))
   (append
-    (list (list 'damage dmg target))
+    (list (list 'enemy-damage skname dmg target))
     (cond
       [(= (actor-hp target) 0)
         (gvector-remove! enms target-idx)
@@ -28,10 +28,11 @@
         (list (list 'sp (actor-sp target)))]
       [else '()])))
 
-;; applies damage to the user
+;; applies damage to the user (atkr is attacking offender, skname is the name of the skill used, for
+;; frontend message purposes.
 ;; TODO: make something actually happen when user dies
-(define/contract (user-damage! st dmg)
-  (-> state? integer? response?)
+(define/contract (user-damage! st dmg atkr skname)
+  (-> state? integer? actor? (or/c 'attack string?) response?)
   (set-actor-hp! (state-user st) (max 0 (- (actor-hp (state-user st)) dmg)))
-  (cons `(user-damage ,dmg)
+  (cons (list 'user-damage atkr skname dmg)
         (if (<= (actor-hp (state-user st)) 0) '((user-death)) '())))

@@ -35,7 +35,7 @@
                            (- (actor-stat target 'def))))
             (append
               (list (list 'info (format "You used ~a on ~a." name (actor-name target))))
-              (apply-damage! st target-idx dmg))]))))
+              (enemy-damage! st target-idx dmg name))]))))
 
 
 ;; ------------------------------------actual skills------------------------------------=
