@@ -17,7 +17,7 @@
     (define usr (state-user st))
     (define amt (+ (actor-stat usr 'skl) power))
     (set-actor-hp! usr (min (actor-stat usr 'maxhp) (+ (actor-hp usr) amt)))
-    (list (list 'heal amt usr)))))
+    (cons #t (list (list 'heal amt usr))))))
 
 ;; constructs a damaging skill
 (define/contract (make-dmgr name power range)
@@ -27,15 +27,13 @@
     (define enms (grmap-enemies (state-fmap st)))
     (define target-idx (find-target st loc))
     (cond
-      [(not target-idx) (err (format "No target at ~a,~a!" (car loc) (cdr loc)))]
+      [(not target-idx) (cons #f (err (format "No target at ~a,~a!" (car loc) (cdr loc))))]
       [(> (loc-dist (actor-loc usr) loc) range)
-        (err "Target out of range!")]
+        (cons #f (err "Target out of range!"))]
       [else (define target (gvector-ref enms target-idx))
             (define dmg (+ (actor-stat usr 'skl) power
                            (- (actor-stat target 'def))))
-            (append
-              (list (list 'info (format "You used ~a on ~a." name (actor-name target))))
-              (enemy-damage! st target-idx dmg name))]))))
+            (cons #t (enemy-damage! st target-idx dmg name))]))))
 
 
 ;; ------------------------------------actual skills------------------------------------=

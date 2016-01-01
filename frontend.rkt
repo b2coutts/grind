@@ -12,7 +12,7 @@
 
 ;; ----------------------------various UI constants----------------------------
 (define map-width 40)
-(define map-height 40)
+(define map-height 24)
 (define hud-width 40)
 
 ;; location of skill select window
@@ -192,7 +192,7 @@
   (for ([line (reverse (queue->list console-lines))]
         [row (in-range (- map-height 1) top -1)])
     (charterm-cursor (+ map-width 1) row)
-    (charterm-display (fmt line 37))
+    (charterm-display (fmt line 97))
     (charterm-display bar))
   (charterm-cursor map-width map-height)
   (charterm-display (make-bar hud-width)))
@@ -235,12 +235,15 @@
 
 
 ;; printf for console
-(define/contract (consolef lbl fstr . args)
-  (->* (string? string?) #:rest (listof any/c) void?)
-  (define lines (gwrap (- hud-width 4 (string-length lbl)) (apply (curry format fstr) args)))
+(define/contract (consolef type fstr . args)
+  (->* ((or/c 'info 'err) string?) #:rest (listof any/c) void?)
+  (define lbl (match type
+    ['info (fmt "*" 32)]
+    ['err  (fmt "!" 31)]))
+  (define lines (gwrap (- hud-width 5) (apply (curry format fstr) args)))
   (enqueue! console-lines (format " ~a ~a" lbl (first lines)))
   (for ([line (rest lines)])
-    (enqueue! console-lines (format " ~a ~a" (make-string (string-length lbl) #\space) line)))
+    (enqueue! console-lines (string-append "   " line)))
   (for ([i (max 0 (- (queue-length console-lines) map-height))])
     (dequeue! console-lines))
   (display-console))
@@ -365,33 +368,33 @@
     [_ (values 1 1)]))
   (for ([msg resp])
     (match msg
-      [(list 'err str) (consolef "!" str)]
-      [(list 'info str) (consolef "*" str)]
+      [(list 'err str) (consolef 'err str)]
+      [(list 'info str) (consolef 'info str)]
       [(list 'move loc) (void)]
       [(list 'enemy-move loc) (void)]
       [(list 'skill-gain x y)
         (match (vector-ref (get-skill st x y) 3)
-          [(skill name _ _ _ _) (consolef "*" "You learned ~a."
+          [(skill name _ _ _ _) (consolef 'info "You learned ~a."
                                           (apply (curry fmt name) (skill-ansi-codes st x y)))]
-          [(? stats? s) (consolef "*" (string-join (for/list ([(stat val) s] #:when (> val 0))
+          [(? stats? s) (consolef 'info (string-join (for/list ([(stat val) s] #:when (> val 0))
                                                 (format "~a+~a" stat val))
                                                ", "
                                                #:before-first "You gained "
                                                #:after-last "."))])
         (set-cursor-vis! #f)
         (set! frontend-state 'map)]
-      [(list 'heal amt target) (consolef "*" "~a heals ~a HP." (actor-name target) amt)]
+      [(list 'heal amt target) (consolef 'info "~a heals ~a HP." (actor-name target) amt)]
       [(list 'enemy-damage 'attack dmg target)
-        (consolef "*" "You attack ~a for ~a damage." (actor-name target) dmg)]
+        (consolef 'info "You attack ~a for ~a damage." (actor-name target) dmg)]
       [(list 'enemy-damage skname dmg target)
-        (consolef "*" "You use ~a on ~a for ~a damage." skname (actor-name target) dmg)]
-      [(list 'death target) (consolef "*" "~a died." (actor-name target))]
+        (consolef 'info "You use ~a on ~a for ~a damage." skname (actor-name target) dmg)]
+      [(list 'enemy-death target) (consolef 'info "~a dies." (actor-name target))]
       [(list 'user-damage atkr 'attack dmg)
-        (consolef "*" "~a attacks you for ~a damage." (actor-name atkr) dmg)]
+        (consolef 'info "~a attacks you for ~a damage." (actor-name atkr) dmg)]
       [(list 'user-damage atkr skname dmg)
-        (consolef "*" "~a uses ~a on you for ~a damage." (actor-name atkr) skname dmg)]
-      [(list 'user-death) (consolef "*" "You died!")]
-      [(list 'sp amt) (consolef "*" "You gain ~a SP." amt)]
+        (consolef 'info "~a uses ~a on you for ~a damage." (actor-name atkr) skname dmg)]
+      [(list 'user-death) (consolef 'info "You died!")]
+      [(list 'sp amt) (consolef 'info "You gain ~a SP." amt)]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
   (display-all st)
   (charterm-cursor old-x old-y)

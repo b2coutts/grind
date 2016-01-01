@@ -25,7 +25,8 @@
   [type           (or/c 'damage 'heal)]
   [pwr            integer?]
   [ran            integer?]
-  [effect         (-> any/c location? any/c)] ;; first arg is state?
+  ;; first arg is state?, returns (cons (#t for success) (backend resposnse))
+  [effect         (-> any/c location? (cons/c boolean? any/c))]
 ) #:mutable #:transparent)
 
 ;; contains actor stats

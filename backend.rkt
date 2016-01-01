@@ -68,7 +68,9 @@
     [#f (err "Invalid skill")]
     [(vector #f _ _ s) (err "You have not learned ~a yet." (ss-name s))]
     [(vector _ _ _ (? stats? s)) (err "~a is not an active skill." (ss-name s))]
-    [(vector #t _ _ sk) (append ((skill-effect sk) st loc) (enemy-turn! st))]))
+    [(vector #t _ _ sk) (match ((skill-effect sk) st loc)
+      [(cons #t msgs) (append msgs (enemy-turn! st))]
+      [(cons #f msgs) msgs])]))
 
 ;; echo function for debug purposes
 (define/contract (echo str)
