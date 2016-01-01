@@ -3,7 +3,7 @@
 
 (provide response? move-user! attack! learn-skill! use-skill! echo)
 
-(require "state.rkt" "util.rkt" "combat.rkt")
+(require "state.rkt" "util.rkt" "combat.rkt" "ai.rkt")
 (require data/gvector)
 
 ;; a response to the frontend's move request
@@ -16,11 +16,11 @@
   (match-define (state usr _ fmap) st)
   (cond
     [(> (loc-dist (actor-loc usr) loc) 1) (err "Cannot move that far!")]
-    [(or (equal? (grmap-ref fmap (car loc) (cdr loc)) 'wall)
-         (member loc (map actor-loc (liv-enms st))))
-      (err "There's something in the way!")]
+    [(not (space-free? st (car loc) (cdr loc))) (err "There's something in the way!")]
     [else (set-actor-loc! usr loc)
-          (list (list 'move loc))]))
+          (set-actor-mvs! usr (sub1 (actor-mvs usr)))
+          (append (list (list 'move loc))
+                  (if (<= (actor-mvs usr) 0) (enemy-turn! st) '()))]))
 
 ;; makes the user attack a location
 (define/contract (attack! st loc)
@@ -30,11 +30,9 @@
   (define enm-idx (find-target st loc))
   (cond
     [(not enm-idx) (err (format "No target at ~a,~a!" (car loc) (cdr loc)))]
-    [(> (loc-dist (actor-loc usr) loc) (actor-stat usr 'ran))
-      (err "Target out of range!")]
-    [else (define dmg (+ 2 (actor-stat usr 'str)
-                         (- (actor-stat (gvector-ref enms enm-idx) 'def))))
-          (apply-damage! st enm-idx dmg)]))
+    [(> (loc-dist (actor-loc usr) loc) (actor-stat usr 'ran)) (err "Target out of range!")]
+    [else (append (apply-damage! st enm-idx (atk-damage usr (gvector-ref enms enm-idx)))
+                  (enemy-turn! st))]))
 
 ;; teaches/applies the skill/statup at (x,y)
 (define/contract (learn-skill! st x y)
@@ -67,7 +65,7 @@
     [#f (err "Invalid skill")]
     [(vector #f _ _ s) (err "You have not learned ~a yet." (ss-name s))]
     [(vector _ _ _ (? stats? s)) (err "~a is not an active skill." (ss-name s))]
-    [(vector #t _ _ sk) ((skill-effect sk) st loc)]))
+    [(vector #t _ _ sk) (append ((skill-effect sk) st loc) (enemy-turn! st))]))
 
 ;; echo function for debug purposes
 (define/contract (echo str)

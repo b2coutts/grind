@@ -2,7 +2,7 @@
 ;; miscellaneous helper functions
 
 (provide err loc-dist grmap-ref fmt find-target get-skill actor-stat can-learn? liv-enms read-map
-         known-skills ss-name)
+         known-skills ss-name space-free?)
 
 (require "state.rkt")
 (require data/gvector)
@@ -102,3 +102,12 @@
   (match s
     [(skill name _ _ _ _) name]
     [(? stats?)           "Stats"]))
+
+;; determines whether a space on the map can be moved to
+(define/contract (space-free? st x y)
+  (-> state? integer? integer? boolean?)
+  (match-define (grmap width height cells enemies) (state-fmap st))
+  (and (< -1 x width) (< -1 y height)
+    (nor (equal? (grmap-ref (state-fmap st) x y) 'wall)
+         (member (cons x y) (map actor-loc (cons (state-user st) (liv-enms st)))))
+    #t))

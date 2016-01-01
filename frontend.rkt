@@ -128,7 +128,7 @@
 ;; displays user info
 (define/contract (display-user st)
   (-> state? void?)
-  (match-define (and usr (actor name lvl sp hp _ _ _)) (state-user st))
+  (match-define (and usr (actor name lvl mvs sp hp _ _ _)) (state-user st))
   (charterm-cursor map-width 1)
     (charterm-display (make-bar hud-width))
 
@@ -139,7 +139,7 @@
     (charterm-display (fmt " |" 90))
 
   (charterm-cursor map-width 3)
-    (charterm-display (format "~a SP ~a (MV ~a/~a)" bar sp #\? (actor-stat usr 'spd)))
+    (charterm-display (format "~a SP ~a (MV ~a/~a)" bar sp mvs (actor-stat usr 'spd)))
   (define stat-str (string-join (for/list ([stat '(str skl def spd ran)])
                                   (~a (actor-stat usr stat)))
                                 "/"))
@@ -154,7 +154,7 @@
 (define/contract (display-actor st enm-idx slot)
   (-> state? integer? integer? void?)
   (define enm (gvector-ref (grmap-enemies (state-fmap st)) enm-idx))
-  (match-define (actor name lvl _ hp _ _ _) enm)
+  (match-define (actor name lvl _ _ hp _ _ _) enm)
   (define y1 (+ 5 (* slot 3)))
 
   (charterm-cursor map-width y1)
@@ -368,6 +368,7 @@
       [(list 'err str) (consolef "!" str)]
       [(list 'info str) (consolef "*" str)]
       [(list 'move loc) (void)]
+      [(list 'enemy-move loc) (void)]
       [(list 'skill-gain x y)
         (match (vector-ref (get-skill st x y) 3)
           [(skill name _ _ _ _) (consolef "*" "You learned ~a."
@@ -380,8 +381,10 @@
         (set-cursor-vis! #f)
         (set! frontend-state 'map)]
       [(list 'heal amt target) (consolef "*" "~a heals ~a HP." (actor-name target) amt)]
-      [(list 'damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
+      [(list 'enemy-damage dmg target) (consolef "*" "~a takes ~a damage." (actor-name target) dmg)]
       [(list 'death target) (consolef "*" "~a died." (actor-name target))]
+      [(list 'user-damage dmg) (consolef "*" "You took ~a damage." dmg)]
+      [(list 'user-death) (consolef "*" "You died!")]
       [(list 'sp amt) (consolef "*" "You gained ~a SP." amt)]
       [_ (error (format "Unexpected msg from backend: ~s" msg))]))
   (display-all st)

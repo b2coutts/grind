@@ -45,7 +45,8 @@
 (define-struct/contract actor (
   [name           string?]
   [lvl            integer?]
-  [sp             integer?] ;; skill points
+  [mvs            integer?]
+  [sp             integer?]
   [hp             integer?]
   [stats          stats?]
   [skills         sarray?]
