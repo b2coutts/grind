@@ -153,6 +153,7 @@
 
 
 ;; MAIN
+#|
 ;(random-seed 1337)
 ;(define rm (random-map 160 96 20 (void) (void)))
 ;(display-map rm)
@@ -168,3 +169,4 @@
   (gvector)
 ))
 (display-map rm)
+|#
