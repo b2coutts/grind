@@ -66,6 +66,11 @@
     [(= cur-len 0) (reverse lines)]
     [else (reverse (cons (string-append cur-line (make-string (- N cur-len) #\space)) lines))]))
 
+;; string-length, but takes into account ANSI color codes
+(define/contract (ansi-length str)
+  (-> string? integer?)
+  (string-length (regexp-replace* #rx"\x1b\\[[^m]*m" str "")))
+
 ;; creates a bar of length len with the form +-----+
 (define/contract (make-bar len [mid #\-] [end #\+])
   (->* (integer?) (char? char?) string?)
@@ -158,21 +163,24 @@
   (define y1 (+ 5 (* slot 3)))
 
   (charterm-cursor map-width y1)
-    (charterm-display bar)
-    (charterm-display (format " ~a: ~a (~a/~a)"
-                              (idx->glyph enm-idx) (fmt name 31) hp (actor-stat enm 'maxhp)))
-  (charterm-cursor (+ map-width hud-width -14) y1)
-    (charterm-display (make-health-bar hp (actor-stat enm 'maxhp) 10))
-    (charterm-display (fmt " |" 90))
+    (define name-hp (format "~a ~a: ~a (~a/~a)"
+                            bar (idx->glyph enm-idx) (fmt name 31) hp (actor-stat enm 'maxhp)))
+    (define hp-bar (string-append (make-health-bar hp (actor-stat enm 'maxhp) 10) " " bar))
+    (charterm-display (string-append
+      name-hp
+      (make-string (- hud-width (ansi-length name-hp) (ansi-length hp-bar)) #\space)
+      hp-bar))
 
   (charterm-cursor map-width (+ y1 1))
-    (charterm-display (format "~a    LV ~a" bar lvl))
-  (define stat-str (string-join (for/list ([stat '(str skl def spd ran)])
-                                  (~a (actor-stat enm stat)))
-                                "/"))
-  (charterm-cursor (+ map-width hud-width (- (string-length stat-str)) -2) (+ y1 1))
-    (charterm-display stat-str)
-    (charterm-display (fmt " |" 90))
+    (define lvl-str (format "~a    LV ~a" bar lvl))
+    (define stat-str (string-join (for/list ([stat '(str skl def spd ran)])
+                                    (~a (actor-stat enm stat)))
+                                  "/"
+                                  #:after-last (string-append " " bar)))
+    (charterm-display (string-append
+      lvl-str
+      (make-string (- hud-width (ansi-length lvl-str) (ansi-length stat-str)) #\space)
+      stat-str))
 
   (charterm-cursor map-width (+ y1 2))
     (charterm-display (make-bar hud-width)))
