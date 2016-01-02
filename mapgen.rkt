@@ -1,4 +1,8 @@
 #lang racket
+;; improvement ideas:
+;;   instead of square/diamond/circle, create p-norm balls with random p value
+;;   apply random linear transformations to the rooms
+;;   in make-path!, sometimes move in a wrong direction
 
 (provide random-map)
 
