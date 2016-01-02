@@ -2,7 +2,7 @@
 ;; defines some initial state for testing
 
 (provide game-state)
-(require "state.rkt" "util.rkt" "skills.rkt" data/gvector)
+(require "state.rkt" "util.rkt" "skills.rkt" "mapgen.rkt" data/gvector)
 
 ;; statups
 (define all1 '#hash((maxhp . 1) (str . 1) (skl . 1) (def . 1) (spd . 0) (ran . 0)))
@@ -35,29 +35,43 @@
   (cons 1 10)
 ))
 
-(define slime (actor
-  "slime"
-  2
-  1
-  2
-  8
-  (make-hash '((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1)))
-  (sarray 0 0 (vector))
-  (cons 40 4)
-))
+(define (make-slime)
+  (actor
+    "slime"
+    2
+    1
+    2
+    8
+    (make-hash '((maxhp . 8) (str . 2) (skl . 0) (def . 1) (spd . 1) (ran . 1)))
+    (sarray 0 0 (vector))
+    (cons 40 4)
+  ))
 
-(define wolf (actor
-  "wolf"
-  3
-  1
-  3
-  22
-  (make-hash '((maxhp . 25) (str . 4) (skl . 0) (def . 1) (spd . 2) (ran . 1)))
-  (sarray 0 0 (vector))
-  (cons 4 1)
-))
+(define (make-wolf)
+  (actor
+    "wolf"
+    3
+    1
+    3
+    22
+    (make-hash '((maxhp . 25) (str . 4) (skl . 0) (def . 1) (spd . 2) (ran . 1)))
+    (sarray 0 0 (vector))
+    (cons 4 1)
+  ))
 
-(define btlmap (read-map "test.map"))
-(set-grmap-enemies! btlmap (gvector slime wolf))
+(define enemies (apply gvector (append (build-list 6 (lambda (x) (make-slime)))
+                                       (build-list 6 (lambda (x) (make-wolf))))))
+;(define btlmap (read-map "test.map"))
+(define-values (btlmap usr-loc) (random-map
+  160 ;; width
+  96  ;; height
+  20  ;; number of rooms
+  7   ;; mean room radius
+  3   ;; std dev of room radius
+  5   ;; number of expansion rounds
+  0.2 ;; expansion probability
+  enemies
+))
+(set-actor-loc! usr usr-loc)
 
 (define game-state (state usr 'battle btlmap))
